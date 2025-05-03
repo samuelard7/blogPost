@@ -4,7 +4,7 @@ from flask_bootstrap import Bootstrap5
 import smtplib
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
-from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
+from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user, login_required
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
@@ -23,26 +23,21 @@ password = "ebsv xtyp eeuc pufg"
 ckeditor = CKEditor(app)
 Bootstrap5(app)
 
-
 def admin_only(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if current_user.id != 1:
             return abort(403)
         return f(*args, **kwargs)
-
     return decorated_function
-
 
 # CREATE DATABASE
 class Base(DeclarativeBase):
     pass
 
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_NF0wDWKkZLJ6@ep-super-shadow-a45g9gn4.us-east-1.aws.neon.tech/neondb?sslmode=require'
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
-
 
 # CONFIGURE TABLES
 class User(UserMixin, db.Model):
@@ -82,12 +77,13 @@ class Contact(db.Model):
     email: Mapped[str] = mapped_column(String(100), nullable=False)
     mobile: Mapped[str] = mapped_column(String(10))
     message: Mapped[str] = mapped_column(Text)
-   
+
 with app.app_context():
     db.create_all()
 
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.login_view = 'login' 
 
 gravatar = Gravatar(app,
                     size=100,
@@ -105,7 +101,6 @@ def load_user(user_id):
     unique_id = user_id
     em_ail = db.session.execute(db.select(User.email).where(User.id==user_id)).scalar()
     return db.get_or_404(User, user_id)
-
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -140,7 +135,6 @@ def register():
         return redirect(url_for('get_all_posts'))
     return render_template("register.html", form=form, current_user=current_user)
 
-
 @app.route('/admin_login', methods=["GET", "POST"])
 def admin_login():
     form = AdminLoginForm()
@@ -157,7 +151,6 @@ def admin_login():
             login_user(user)
             return redirect(url_for('get_all_posts'))
     return render_template("admin_login.html", form=form, current_user=current_user)
-
 
 @app.route('/login', methods=["GET", "POST"])
 def login():
@@ -188,13 +181,11 @@ def login():
             return redirect(url_for('get_all_posts'))
     return render_template("login.html", form=form, current_user=current_user)
 
-
-
 @app.route('/logout')
+@login_required
 def logout():
     logout_user()
     return redirect(url_for('get_all_posts'))
-
 
 @app.route('/')
 def get_all_posts():
@@ -202,8 +193,8 @@ def get_all_posts():
     posts = result.scalars().all()
     return render_template("index.html", all_posts=posts, current_user=current_user)
 
-
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
+
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
     comment_form = CommentForm()
@@ -221,7 +212,6 @@ def show_post(post_id):
         db.session.commit()
     return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
 
-# TODO: Use a decorator so only an admin user can create a new post
 @app.route("/new-post", methods=["GET", "POST"])
 @admin_only
 def add_new_post():
@@ -240,8 +230,6 @@ def add_new_post():
         return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, current_user=current_user)
 
-
-# TODO: Use a decorator so only an admin user can edit a post
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
 @admin_only
 def edit_post(post_id):
@@ -262,7 +250,6 @@ def edit_post(post_id):
         return redirect(url_for("show_post", post_id=post.id))
     return render_template("make-post.html", form=edit_form, is_edit=True, current_user=current_user)
 
-
 @app.route("/delete/<int:post_id>")
 @admin_only
 def delete_post(post_id):
@@ -271,15 +258,12 @@ def delete_post(post_id):
     db.session.commit()
     return redirect(url_for('get_all_posts'))
 
-
 @app.route("/about")
 def about():
     return render_template("about.html", current_user=current_user)
 
-
-@app.route("/contact",methods=['GET','POST'])
+@app.route("/contact", methods=['GET', 'POST'])
 def contact():
-  
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
@@ -289,7 +273,9 @@ def contact():
         if unique_id == None:
             flash('Please login in to contact..')
             return redirect(url_for('login'))
-        
+        if unique_id != 1:
+            flash(f'Please check the email it should be {em_ail}. Try Again!')
+            return redirect(url_for('contact',stored_text = em_ail))
         result = db.session.execute(db.select(Contact).where(Contact.email == email))
         user = result.scalar()
         if user:
@@ -300,14 +286,13 @@ def contact():
                 connection.starttls()
                 connection.login(user=my_email, password=password)
                 connection.sendmail(from_addr=email, to_addrs=my_email,
-                            msg=f"Subject:{name} query\n\n {message} \n\n\n Mob:{phone}")
+                            msg=f"Subject:{name} sends a message\n\n {message} \n\n\n Mob:{phone}")
             flash('Successfully Sended.',category="success")
             return redirect(url_for('contact'))
         else:
-            flash(f'Please check the email it should be {em_ail}')
+            flash(f'Please check the email it should be {em_ail}. Try Again!')
             return redirect(url_for('contact',stored_text = em_ail))
     return render_template("contact.html", current_user=current_user)
-
 
 if __name__ == "__main__":
     app.run(debug=True)
