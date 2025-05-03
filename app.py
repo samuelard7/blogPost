@@ -229,7 +229,8 @@ def admincontact():
     query = [[c.name, c.email, c.mobile, c.message] for c in result.scalars()]
     columns = ["Name", "Email", "Mobile", "Message"]
 
-    df = pd.DataFrame(query, columns=columns).to_html()
+    df = pd.DataFrame(query, columns=columns)
+    table_html = df.to_html(classes="table table-striped table-bordered", index=False)
     Query_no = randint(1,9999)
     if form.validate_on_submit():
         email = form.email.data
@@ -248,7 +249,7 @@ def admincontact():
             db.session.delete(query_to_delete)
             db.session.commit()
         return redirect(url_for('admincontact'))
-    return render_template("Admincontact.html",current_user=current_user ,form =form, query =df)
+    return render_template("Admincontact.html",current_user=current_user ,form =form, query =table_html)
 
 @app.route("/new-post", methods=["GET", "POST"])
 @admin_only
@@ -320,13 +321,18 @@ def contact():
             user.message = message
             user.mobile = phone
             db.session.commit()
-            with smtplib.SMTP("smtp.gmail.com") as connection:
-                connection.starttls()
-                connection.login(user=my_email, password=password)
-                connection.sendmail(from_addr=email, to_addrs=my_email,
-                            msg=f"Subject:{name} sends a message\n\n {message} \n\n\n Mob:{phone}")
-            flash('Successfully Sended.',category="success")
-            return redirect(url_for('contact'))
+            try:
+                with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(from_addr=email, to_addrs=my_email,
+                                msg=f"Subject:{name} sends a message\n\n {message} \n\n\n Mob:{phone}")
+                flash('Successfully Sended.',category="success")
+                return redirect(url_for('contact'))
+            except Exception as e:
+                app.logger.error(f"Error sending email: {e}")
+                flash(f"An error occurred while sending the email. Please try again later.\n error: {e}", category="error")
+                return redirect(url_for('contact'))
         else:
             flash(f'Please check the email it should be {em_ail}. Try Again!')
             return redirect(url_for('contact',stored_text = em_ail))

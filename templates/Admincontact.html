@@ -37,7 +37,7 @@
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
         <p>
-          Queries Database!
+          User Queries!
         </p><p>{{ query|safe }}</p>
         <div class="my-5">
           <form method="POST">
@@ -48,6 +48,7 @@
             <div class="form-group">
                 {{ form.reply.label }} {{ form.reply(class="form-control") }}
             </div>
+            <br>
             <div class="form-group">
                 {{ form.submit(class="btn btn-primary") }}
             </div>
