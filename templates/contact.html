@@ -1,6 +1,5 @@
 {% include "header.html" %}
 
-<!-- Page Header-->
 <header
   class="masthead"
   style="background-image: url('../static/assets/img/contact-bg.jpg')"
@@ -20,7 +19,19 @@
     </div>
   </div>
 </header>
-<!-- Main Content-->
+<main class="mb-4">
+  <div class="container">
+    <div class="row">
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      {% for message in messages %}
+      <p class="alert alert-success">{{ message }}</p>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+</main>
 <main class="mb-4">
   <div class="container px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
@@ -30,8 +41,6 @@
           I will get back to you as soon as possible!
         </p>
         <div class="my-5">
-          <!-- * * * * * * * * * * * * * * *-->
-          <!-- * * Simplified SB Contact Form for the Tutorial* *-->
           <form
             id="contactForm"
             name="sentMessage"
@@ -43,6 +52,7 @@
                 class="form-control"
                 id="name"
                 name="name"
+                autofocus
                 type="text"
                 placeholder="Enter your name..."
                 required
@@ -56,6 +66,7 @@
                 name="email"
                 type="email"
                 placeholder="Enter your email..."
+                value="{{ stored_text }}"
                 required
               />
               <label for="email">Email address</label>

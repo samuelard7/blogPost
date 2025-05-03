@@ -1,6 +1,7 @@
 from datetime import date
-from flask import Flask, abort, render_template, redirect, url_for, flash
+from flask import Flask, abort, render_template, redirect, url_for, flash, request
 from flask_bootstrap import Bootstrap5
+import smtplib
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
@@ -9,12 +10,16 @@ from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm
 
 count = 5
+em_ail = None
+unique_id = None
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
+app.config['SECRET_KEY'] = '8BYkEfBu88465nA6O6dondsdffgSihBXox7C0sKR6b'
+my_email = "samuelrichard214@gmail.com"
+password = "ebsv xtyp eeuc pufg"
 ckeditor = CKEditor(app)
 Bootstrap5(app)
 
@@ -61,6 +66,23 @@ class BlogPost(db.Model):
     img_url: Mapped[str] = mapped_column(String(250), nullable=False)
     comments = relationship("Comment", back_populates="parent_post")
 
+class Comment(db.Model):
+    __tablename__ = "comments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    author_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
+    comment_author = relationship("User", back_populates="comments")
+    post_id: Mapped[str] = mapped_column(Integer, db.ForeignKey("blog_posts.id"))
+    parent_post = relationship("BlogPost", back_populates="comments")
+
+class Contact(db.Model):
+    __tablename__ = "contact"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(100), nullable=False)
+    mobile: Mapped[str] = mapped_column(String(10))
+    message: Mapped[str] = mapped_column(Text)
+   
 with app.app_context():
     db.create_all()
 
@@ -75,20 +97,16 @@ gravatar = Gravatar(app,
                     force_lower=False,
                     use_ssl=False,
                     base_url=None)
-class Comment(db.Model):
-    __tablename__ = "comments"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    text: Mapped[str] = mapped_column(Text, nullable=False)
-    author_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
-    comment_author = relationship("User", back_populates="comments")
-    post_id: Mapped[str] = mapped_column(Integer, db.ForeignKey("blog_posts.id"))
-    parent_post = relationship("BlogPost", back_populates="comments")
+
 @login_manager.user_loader
 def load_user(user_id):
+    global unique_id
+    global em_ail
+    unique_id = user_id
+    em_ail = db.session.execute(db.select(User.email).where(User.id==user_id)).scalar()
     return db.get_or_404(User, user_id)
 
 
-# TODO: Use Werkzeug to hash the user's password when creating a new user.
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
@@ -109,6 +127,13 @@ def register():
             name=form.name.data,
             password=hash_and_salted_password,
         )
+        new_user_contact_details = Contact(
+            email=form.email.data,
+            name=form.name.data,
+            mobile='Nan',
+            message='Nan',
+        )
+        db.session.add(new_user_contact_details)
         db.session.add(new_user)
         db.session.commit()
         login_user(new_user)
@@ -116,17 +141,36 @@ def register():
     return render_template("register.html", form=form, current_user=current_user)
 
 
-# TODO: Retrieve a user from the database based on their email.
-@app.route('/login', methods=["GET", "POST"])
-def login():
-    form = LoginForm()
+@app.route('/admin_login', methods=["GET", "POST"])
+def admin_login():
+    form = AdminLoginForm()
     global count
-    print(count)
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
         result = db.session.execute(db.select(User).where(User.email == email))
         user = result.scalar()
+        if not user:
+            flash("Incorrect Credentials, please try again.")
+            return redirect(url_for('admin_login'))
+        else:
+            login_user(user)
+            return redirect(url_for('get_all_posts'))
+    return render_template("admin_login.html", form=form, current_user=current_user)
+
+
+@app.route('/login', methods=["GET", "POST"])
+def login():
+    form = LoginForm()
+    global count
+    if form.validate_on_submit():
+        email = form.email.data
+        password = form.password.data
+        result = db.session.execute(db.select(User).where(User.email == email))
+        user = result.scalar()
+        if user.email == 'samuelard715@outlook.com':
+            flash('Please go to admin login tab to logged in as a admin..')
+            return redirect(url_for('login'))
         if not user:
             flash("Email does not exist, please try again.")
             return redirect(url_for('login'))
@@ -145,6 +189,7 @@ def login():
     return render_template("login.html", form=form, current_user=current_user)
 
 
+
 @app.route('/logout')
 def logout():
     logout_user()
@@ -158,16 +203,13 @@ def get_all_posts():
     return render_template("index.html", all_posts=posts, current_user=current_user)
 
 
-# TODO: Allow logged-in users to comment on posts
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
-    # Add the CommentForm to the route
     comment_form = CommentForm()
-    # Only allow logged-in users to comment on posts
     if comment_form.validate_on_submit():
         if not current_user.is_authenticated:
-            flash("You need to login or register to comment.")
+            flash("You need to login to comment.")
             return redirect(url_for("login"))
 
         new_comment = Comment(
@@ -221,7 +263,6 @@ def edit_post(post_id):
     return render_template("make-post.html", form=edit_form, is_edit=True, current_user=current_user)
 
 
-# TODO: Use a decorator so only an admin user can delete a post
 @app.route("/delete/<int:post_id>")
 @admin_only
 def delete_post(post_id):
@@ -236,8 +277,35 @@ def about():
     return render_template("about.html", current_user=current_user)
 
 
-@app.route("/contact")
+@app.route("/contact",methods=['GET','POST'])
 def contact():
+  
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        phone = request.form.get('phone')
+        message = request.form.get('message')
+
+        if unique_id == None:
+            flash('Please login in to contact..')
+            return redirect(url_for('login'))
+        
+        result = db.session.execute(db.select(Contact).where(Contact.email == email))
+        user = result.scalar()
+        if user:
+            user.message = message
+            user.mobile = phone
+            db.session.commit()
+            with smtplib.SMTP("smtp.gmail.com") as connection:
+                connection.starttls()
+                connection.login(user=my_email, password=password)
+                connection.sendmail(from_addr=email, to_addrs=my_email,
+                            msg=f"Subject:{name} query\n\n {message} \n\n\n Mob:{phone}")
+            flash('Successfully Sended.',category="success")
+            return redirect(url_for('contact'))
+        else:
+            flash(f'Please check the email it should be {em_ail}')
+            return redirect(url_for('contact',stored_text = em_ail))
     return render_template("contact.html", current_user=current_user)
 
 
