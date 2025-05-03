@@ -2,6 +2,8 @@ from datetime import date
 from flask import Flask, abort, render_template, redirect, url_for, flash, request
 from flask_bootstrap import Bootstrap5
 import smtplib
+import pandas as pd
+from random import randint
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user, login_required
@@ -10,7 +12,7 @@ from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import Integer, String, Text
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm, AdminContactForm
 
 count = 5
 em_ail = None
@@ -77,6 +79,14 @@ class Contact(db.Model):
     email: Mapped[str] = mapped_column(String(100), nullable=False)
     mobile: Mapped[str] = mapped_column(String(10))
     message: Mapped[str] = mapped_column(Text)
+
+class AdminContact(db.Model):
+    __tablename__ = "adminqueries"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(100), nullable=False)
+    mobile: Mapped[str] = mapped_column(String(10))
+    reply: Mapped[str] = mapped_column(Text)
 
 with app.app_context():
     db.create_all()
@@ -194,7 +204,6 @@ def get_all_posts():
     return render_template("index.html", all_posts=posts, current_user=current_user)
 
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
-
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
     comment_form = CommentForm()
@@ -211,6 +220,35 @@ def show_post(post_id):
         db.session.add(new_comment)
         db.session.commit()
     return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
+
+@app.route("/contact-admin", methods=["GET", "POST"])
+@admin_only
+def admincontact():
+    form = AdminContactForm()
+    result = db.session.execute(db.select(Contact))
+    query = [[c.name, c.email, c.mobile, c.message] for c in result.scalars()]
+    columns = ["Name", "Email", "Mobile", "Message"]
+
+    df = pd.DataFrame(query, columns=columns).to_html()
+    Query_no = randint(1,9999)
+    if form.validate_on_submit():
+        email = form.email.data
+        message = form.reply.data
+    
+        with smtplib.SMTP("smtp.gmail.com") as connection:
+                connection.starttls()
+                connection.login(user=my_email, password=password)
+                connection.sendmail(from_addr=my_email, to_addrs=email,
+                            msg=f"Subject:Refno: {Query_no} Thank you for contacting BlogFocus\n\n {message} \n\n\n Feel free to contact again. \n\n Richard Samuel \n Developer @BlogFocus ")
+        flash('Successfully Sended.',category="success")
+        delete_query = db.session.execute(db.select(Contact.id).where(Contact.email == email)).scalar()
+        print(delete_query)
+        if delete_query:
+            query_to_delete = db.get_or_404(Contact, delete_query)
+            db.session.delete(query_to_delete)
+            db.session.commit()
+        return redirect(url_for('admincontact'))
+    return render_template("Admincontact.html",current_user=current_user ,form =form, query =df)
 
 @app.route("/new-post", methods=["GET", "POST"])
 @admin_only
@@ -273,11 +311,11 @@ def contact():
         if unique_id == None:
             flash('Please login in to contact..')
             return redirect(url_for('login'))
-        if unique_id != 1:
-            flash(f'Please check the email it should be {em_ail}. Try Again!')
-            return redirect(url_for('contact',stored_text = em_ail))
         result = db.session.execute(db.select(Contact).where(Contact.email == email))
         user = result.scalar()
+        if user.id == 1:
+            flash(f'Please check the email it should be {em_ail}. Try Again!')
+            return redirect(url_for('contact',stored_text = em_ail))
         if user:
             user.message = message
             user.mobile = phone

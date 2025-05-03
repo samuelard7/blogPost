@@ -42,7 +42,7 @@
           <a href="{{url_for('about')}}">{{post.author.name}}</a>
           on {{post.date}}
           <!-- TODO: Only show delete button if user id is 1 (admin user) -->
-          <a href="https://wa.me/?text={{ url_for('show_post', post_id=post.id, _external=True) }}" target="_blank">Share this</a> <br>
+          <a href="https://wa.me/?text={{ url_for('show_post', post_id=post.id, _external=True) }} Hi! have you chacked this post?" target="_blank">Share this</a> <br>
           {% if current_user.id == 1: %}
           <a href="{{url_for('delete_post', post_id=post.id) }}">✘</a>
           {% endif %}

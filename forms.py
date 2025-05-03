@@ -21,7 +21,7 @@ class LoginForm(FlaskForm):
     submit = SubmitField("Let Me In!")
 
 class AdminLoginForm(FlaskForm):
-    email = StringField("User Id", validators=[DataRequired()])
+    email = StringField("User Id", validators=[DataRequired()], render_kw={"autofocus": True})
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Login")
 
@@ -31,3 +31,7 @@ class RegisterForm(FlaskForm):
     password = PasswordField("Password", validators=[DataRequired()])
     submit = SubmitField("Sign Me Up!")
 
+class AdminContactForm(FlaskForm):
+    email = StringField("User Email", validators=[DataRequired()])
+    reply = CKEditorField("Reply", validators=[DataRequired()])
+    submit = SubmitField("Send")
