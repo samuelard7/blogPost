@@ -3,13 +3,14 @@ from flask import Flask, abort, render_template, redirect, url_for, flash, reque
 from flask_bootstrap import Bootstrap5
 import smtplib
 import pandas as pd
+import datetime
 from random import randint
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user, login_required
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Integer, String, Text, and_
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm, AdminContactForm
@@ -38,6 +39,7 @@ class Base(DeclarativeBase):
     pass
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_NF0wDWKkZLJ6@ep-super-shadow-a45g9gn4.us-east-1.aws.neon.tech/neondb?sslmode=require'
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(minutes=5)
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
@@ -104,6 +106,7 @@ gravatar = Gravatar(app,
                     use_ssl=False,
                     base_url=None)
 
+
 @login_manager.user_loader
 def load_user(user_id):
     global unique_id
@@ -145,6 +148,7 @@ def register():
         return redirect(url_for('get_all_posts'))
     return render_template("register.html", form=form, current_user=current_user)
 
+
 @app.route('/admin_login', methods=["GET", "POST"])
 def admin_login():
     form = AdminLoginForm()
@@ -152,7 +156,12 @@ def admin_login():
     if form.validate_on_submit():
         email = form.email.data
         password = form.password.data
-        result = db.session.execute(db.select(User).where(User.email == email))
+        hashed = generate_password_hash(
+            password,
+            method='pbkdf2:sha256',
+            salt_length=8
+        )
+        result = db.session.execute(db.select(User).where(and_(User.email == email, User.password == hashed)))
         user = result.scalar()
         if not user:
             flash("Incorrect Credentials, please try again.")
@@ -192,7 +201,6 @@ def login():
     return render_template("login.html", form=form, current_user=current_user)
 
 @app.route('/logout')
-@login_required
 def logout():
     logout_user()
     return redirect(url_for('get_all_posts'))
@@ -204,6 +212,7 @@ def get_all_posts():
     return render_template("index.html", all_posts=posts, current_user=current_user)
 
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
+@login_required
 def show_post(post_id):
     requested_post = db.get_or_404(BlogPost, post_id)
     comment_form = CommentForm()
