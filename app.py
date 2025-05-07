@@ -10,17 +10,19 @@ from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user, login_required
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import Integer, String, Text, and_
+from sqlalchemy import Integer, String, Text, and_,Boolean 
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
-from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm, AdminContactForm
+from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm, AdminContactForm, ResolvedQueryForm
 
 count = 5
 em_ail = None
 unique_id = None
 
+News_API_KEY = "0d57a9b0-8525-4a65-bca7-90413b3cb09d"
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBu88465nA6O6dondsdffgSihBXox7C0sKR6b'
+app.config['SECRET_KEY'] = '8BYkEfBu88nA6O6dondsdffgSihBXox7C0sKR6b'
 my_email = "samuelrichard214@gmail.com"
 password = "ebsv xtyp eeuc pufg"
 ckeditor = CKEditor(app)
@@ -39,7 +41,12 @@ class Base(DeclarativeBase):
     pass
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_NF0wDWKkZLJ6@ep-super-shadow-a45g9gn4.us-east-1.aws.neon.tech/neondb?sslmode=require'
-app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(minutes=5)
+app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(minutes=15)
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    "pool_pre_ping": True,
+    "pool_recycle": 1800 
+}
+db = SQLAlchemy(model_class=Base, engine_options=app.config['SQLALCHEMY_ENGINE_OPTIONS'])
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
@@ -77,18 +84,23 @@ class Comment(db.Model):
 class Contact(db.Model):
     __tablename__ = "contact"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    Ref_no: Mapped[int] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(100), nullable=False)
     mobile: Mapped[str] = mapped_column(String(10))
     message: Mapped[str] = mapped_column(Text)
+    date: Mapped[str] = mapped_column(String(250), nullable=False)
 
 class AdminContact(db.Model):
     __tablename__ = "adminqueries"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    Ref_no: Mapped[int] = mapped_column(Integer, nullable=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(100), nullable=False)
     mobile: Mapped[str] = mapped_column(String(10))
     reply: Mapped[str] = mapped_column(Text)
+    date: Mapped[str] = mapped_column(String(250), nullable=False)
+    
 
 with app.app_context():
     db.create_all()
@@ -107,11 +119,12 @@ gravatar = Gravatar(app,
                     base_url=None)
 
 
+
 @login_manager.user_loader
 def load_user(user_id):
     global unique_id
     global em_ail
-    unique_id = user_id
+    unique_id = int(user_id)
     em_ail = db.session.execute(db.select(User.email).where(User.id==user_id)).scalar()
     return db.get_or_404(User, user_id)
 
@@ -149,19 +162,29 @@ def register():
     return render_template("register.html", form=form, current_user=current_user)
 
 
+@app.route('/profile/<curr_user>', methods=["GET", "POST"])
+def user(curr_user):
+    form = User()
+    # if form.validate_on_submit():
+    #     email = form.email.data
+    #     password = form.password.data
+    #     result = db.session.execute(db.select(User).where(User.email == email))
+    #     user = result.scalar()
+    #     if not user:
+    #         flash("Incorrect Credentials, please try again.")
+    #         return redirect(url_for('admin_login'))
+    #     else:
+    #         login_user(user)
+    #         return redirect(url_for('get_all_posts'))
+    return render_template("user.html", form=form, current_user=curr_user)
+
 @app.route('/admin_login', methods=["GET", "POST"])
 def admin_login():
     form = AdminLoginForm()
     global count
     if form.validate_on_submit():
         email = form.email.data
-        password = form.password.data
-        hashed = generate_password_hash(
-            password,
-            method='pbkdf2:sha256',
-            salt_length=8
-        )
-        result = db.session.execute(db.select(User).where(and_(User.email == email, User.password == hashed)))
+        result = db.session.execute(db.select(User).where(User.email == email))
         user = result.scalar()
         if not user:
             flash("Incorrect Credentials, please try again.")
@@ -180,11 +203,11 @@ def login():
         password = form.password.data
         result = db.session.execute(db.select(User).where(User.email == email))
         user = result.scalar()
-        if user.email == 'samuelard715@outlook.com':
-            flash('Please go to admin login tab to logged in as a admin..')
-            return redirect(url_for('login'))
         if not user:
-            flash("Email does not exist, please try again.")
+            flash("Email does not exist, please register.")
+            return redirect(url_for('login'))
+        if user.email == 'samuelard715@outlook.com':
+            flash('Please go to admin login tab to log in as a admin..')
             return redirect(url_for('login'))
         elif not check_password_hash(user.password, password):
             count = count - 1
@@ -230,35 +253,92 @@ def show_post(post_id):
         db.session.commit()
     return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
 
+@app.route("/deletequery/<int:post_id>")
+@admin_only
+def deletequery(post_id):
+    post_to_delete = db.get_or_404(BlogPost, post_id)
+    db.session.delete(post_to_delete)
+    db.session.commit()
+    return redirect(url_for('admincontact'))
+
 @app.route("/contact-admin", methods=["GET", "POST"])
 @admin_only
 def admincontact():
     form = AdminContactForm()
-    result = db.session.execute(db.select(Contact))
-    query = [[c.name, c.email, c.mobile, c.message] for c in result.scalars()]
-    columns = ["Name", "Email", "Mobile", "Message"]
+    resolved_form = ResolvedQueryForm()
 
+    # Populate the SelectField with database data
+    contact_queries = db.session.execute(db.select(Contact.Ref_no)).scalars().all()
+    resolved_form.resolved.choices = [("", "Select Query number")] + [(str(ref_no), str(ref_no)) for ref_no in contact_queries]
+
+    if request.method == "POST":
+        # Check which form was submitted
+        if form.form_name.data == "admin_contact_form" and form.validate_on_submit():
+            email = form.email.data
+            message = form.reply.data
+
+            user = db.session.execute(db.select(Contact).with_only_columns(Contact.Ref_no, Contact.name, Contact.mobile).where(Contact.email == email))
+            resulty = user.first()
+            
+            try:
+                Query_no = resulty.Ref_no
+                
+                with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=email,
+                        msg=f"Subject:This is with reference #{Query_no} \n\nDear {resulty.name}, \nThank you for contacting BlogFocus! \n{message} \n\n\n Feel free to contact again. \n\n Richard Samuel \n Developer @BlogFocus "
+                    )
+
+                new_query = AdminContact(
+                    Ref_no=Query_no,
+                    name=resulty.name,
+                    email=email,
+                    mobile=resulty.mobile,
+                    reply=message,
+                    date=date.today().strftime("%B %d, %Y")
+                )
+
+                db.session.add(new_query)
+                db.session.commit()
+                flash('Successfully Sent.', category="success")
+                return redirect(url_for('admincontact'))
+            except Exception as e:
+                app.logger.error(f"Error sending email: {e}")
+                flash(f"An error occurred while sending the email. Please try again later.\n error: {e}", category="error")
+                return redirect(url_for('admincontact'))
+
+        elif resolved_form.form_name.data == "resolved_query_form" and resolved_form.validate_on_submit():
+            try:
+                resolved = int(resolved_form.resolved.data)
+                if resolved:
+                    delete_query = db.session.execute(db.select(Contact).with_only_columns(Contact.id, Contact.Ref_no).where(Contact.Ref_no == resolved)).first()
+                    admin_deletequery = db.session.execute(db.select(AdminContact).with_only_columns(AdminContact.id, AdminContact.Ref_no).where(AdminContact.Ref_no == resolved)).first()
+                    if delete_query:
+                        admin_querydelete = db.get_or_404(AdminContact, admin_deletequery.id)
+                        query_to_delete = db.get_or_404(Contact, delete_query.id)
+                        db.session.delete(query_to_delete)
+                        db.session.delete(admin_querydelete)
+                        db.session.commit()
+                        flash(f'Query with Ref_no #{resolved} Resolved.', category="success")
+                        return redirect(url_for('admincontact'))
+                    else:
+                        flash("Please select the Ref_no")
+                        return redirect(url_for('admincontact'))
+            except:
+                flash('Please select the Ref_no')
+                return redirect(url_for('admincontact'))
+
+    # Render the template
+    result = db.session.execute(db.select(Contact))
+    query = [[c.Ref_no, c.name, c.email, c.mobile, c.message, c.date] for c in result.scalars()]
+    columns = ["Ref_No", "Name", "Email", "Mobile", "Message", "Date"]
     df = pd.DataFrame(query, columns=columns)
     table_html = df.to_html(classes="table table-striped table-bordered", index=False)
-    Query_no = randint(1,9999)
-    if form.validate_on_submit():
-        email = form.email.data
-        message = form.reply.data
-    
-        with smtplib.SMTP("smtp.gmail.com") as connection:
-                connection.starttls()
-                connection.login(user=my_email, password=password)
-                connection.sendmail(from_addr=my_email, to_addrs=email,
-                            msg=f"Subject:Refno: {Query_no} Thank you for contacting BlogFocus\n\n {message} \n\n\n Feel free to contact again. \n\n Richard Samuel \n Developer @BlogFocus ")
-        flash('Successfully Sended.',category="success")
-        delete_query = db.session.execute(db.select(Contact.id).where(Contact.email == email)).scalar()
-        print(delete_query)
-        if delete_query:
-            query_to_delete = db.get_or_404(Contact, delete_query)
-            db.session.delete(query_to_delete)
-            db.session.commit()
-        return redirect(url_for('admincontact'))
-    return render_template("Admincontact.html",current_user=current_user ,form =form, query =table_html)
+
+    return render_template("Admincontact.html", current_user=current_user, form=form, resolvedform=resolved_form, query=table_html)
 
 @app.route("/new-post", methods=["GET", "POST"])
 @admin_only
@@ -312,40 +392,62 @@ def about():
 
 @app.route("/contact", methods=['GET', 'POST'])
 def contact():
+    result = db.session.execute(db.select(Contact.date, Contact.Ref_no, Contact.message, AdminContact.reply).join(AdminContact, Contact.Ref_no == AdminContact.Ref_no).where(Contact.email == em_ail))
+    query = [[c.date, c.Ref_no, c.message, c.reply] for c in result]
+    if query:
+        columns = ["Date","Ref_No","Your Message","Reply"]
+        df = pd.DataFrame(query, columns=columns)
+        table_html = df.to_html(classes="table table-striped table-bordered", index=True,border=0).replace('<th>', '<th style="text-align: left;">')
+    else:
+        table_html = ""
     if request.method == 'POST':
         name = request.form.get('name')
         email = request.form.get('email')
         phone = request.form.get('phone')
         message = request.form.get('message')
-
+        Query_no = randint(1,9999)
         if unique_id == None:
             flash('Please login in to contact..')
             return redirect(url_for('login'))
-        result = db.session.execute(db.select(Contact).where(Contact.email == email))
+        result = db.session.execute(db.select(User).where(User.id == unique_id))
         user = result.scalar()
-        if user.id == 1:
-            flash(f'Please check the email it should be {em_ail}. Try Again!')
-            return redirect(url_for('contact',stored_text = em_ail))
-        if user:
-            user.message = message
-            user.mobile = phone
-            db.session.commit()
-            try:
-                with smtplib.SMTP("smtp.gmail.com", 587) as connection:
-                    connection.starttls()
-                    connection.login(user=my_email, password=password)
-                    connection.sendmail(from_addr=email, to_addrs=my_email,
-                                msg=f"Subject:{name} sends a message\n\n {message} \n\n\n Mob:{phone}")
-                flash('Successfully Sended.',category="success")
+        if unique_id == user.id and email == em_ail:
+            existing_query = db.session.execute(db.select(Contact).with_only_columns(Contact.Ref_no, Contact.name).where(Contact.email == email)).first()
+            if existing_query:
+                flash(f'Query already existed for the user {existing_query.name} with Ref_no #{existing_query.Ref_no}. Please do not initiate again!')
                 return redirect(url_for('contact'))
-            except Exception as e:
-                app.logger.error(f"Error sending email: {e}")
-                flash(f"An error occurred while sending the email. Please try again later.\n error: {e}", category="error")
-                return redirect(url_for('contact'))
+            else:
+                new_query = Contact(
+                    name=name,
+                    Ref_no=Query_no,
+                    email=email,
+                    mobile=phone,
+                    message=message,
+                    date=date.today().strftime("%B %d, %Y")
+                    )
+                db.session.add(new_query)
+                db.session.commit()
+                try:
+                    with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                        connection.starttls()
+                        connection.login(user=my_email, password=password)
+                        connection.sendmail(from_addr=email, to_addrs=my_email,
+                                    msg=f"Subject:{name} sends a message\n\n {message} \n\n\n Mob:{phone}")
+                        connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=email,
+                        msg=f"Subject:Your query has been initiated with reference id {Query_no} \n\nDear {name}, \nThank you for contacting BlogFocus! \nYou will Hear from us within 24 working hours. \n\n\n Thank you. \n\n Richard Samuel \n Developer @BlogFocus "
+                        )
+                    flash('Successfully Sended.',category="success")
+                    return redirect(url_for('contact'))
+                except Exception as e:
+                    app.logger.error(f"Error sending email: {e}")
+                    flash(f"An error occurred while sending the email. Please try again later.\n error: {e}", category="error")
+                    return redirect(url_for('contact'))
         else:
             flash(f'Please check the email it should be {em_ail}. Try Again!')
             return redirect(url_for('contact',stored_text = em_ail))
-    return render_template("contact.html", current_user=current_user)
+    return render_template("contact.html", current_user=current_user, userquery = table_html)
 
 if __name__ == "__main__":
     app.run(debug=True)

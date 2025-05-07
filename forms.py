@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, PasswordField
+from wtforms import StringField, SubmitField, PasswordField, SelectField, HiddenField
 from wtforms.validators import DataRequired, URL
 from flask_ckeditor import CKEditorField
 
@@ -32,6 +32,12 @@ class RegisterForm(FlaskForm):
     submit = SubmitField("Sign Me Up!")
 
 class AdminContactForm(FlaskForm):
-    email = StringField("User Email", validators=[DataRequired()])
-    reply = CKEditorField("Reply", validators=[DataRequired()])
+    email = StringField("User Email")
+    reply = CKEditorField("Reply")
     submit = SubmitField("Send")
+    form_name = HiddenField(default="admin_contact_form")
+
+class ResolvedQueryForm(FlaskForm):
+    resolved = SelectField("Query Resolved", choices=[], validate_choice=False)
+    submit = SubmitField("Resolved")
+    form_name = HiddenField(default="resolved_query_form")

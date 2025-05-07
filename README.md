@@ -1,10 +1,12 @@
 # Blog Post Website
 
-## Dependencies needed to run the website 
+## website is up and running on blogfocus.vercel.app 
 
-pip install -r requirements.txt
+## About the Website
+### Only Admin can modify, edit, and delete the posts. 
+### Authentication and passwords are secured and hashed and Contact Column for queries.
+### User can view, share & comment the blog posts.
 
-### To become the admin run the file main.py and go to the address localhost:127.0.0.1 and register 
-## The first registered person will be the admin
-### Admin can modify, edit, and delete the posts 
+<p> 2024 @BlogFocus </p>
+
 

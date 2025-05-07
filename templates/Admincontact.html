@@ -12,7 +12,6 @@
           {% if msg_sent: %}
           <h1>Successfully sent your message</h1>
           {% else: %}
-          <h1>Contact Admin</h1>
           {% endif %}
         </div>
       </div>
@@ -38,7 +37,8 @@
       <div class="col-md-10 col-lg-8 col-xl-7">
         <p>
           User Queries!
-        </p><p>{{ query|safe }}</p>
+        </p>
+        <p>{{ query|safe }}</p>
         <div class="my-5">
           <form method="POST">
             {{ form.hidden_tag() }}
@@ -48,10 +48,23 @@
             <div class="form-group">
                 {{ form.reply.label }} {{ form.reply(class="form-control") }}
             </div>
-            <br>
+          <br>
             <div class="form-group">
                 {{ form.submit(class="btn btn-primary") }}
-            </div>
+            </div>   
+          </form>
+            <hr>
+            <br>
+            <form method="POST">
+              {{ resolvedform.hidden_tag() }}
+            <div class="form-group">
+              {{ resolvedform.resolved.label }} {{ resolvedform.resolved(class="form-control") }}
+          </div>
+          <br>
+          <div class="form-group">
+            {{ resolvedform.submit(class="btn btn-primary") }}
+        </div>
+      
         </form>
         </div>
       </div>

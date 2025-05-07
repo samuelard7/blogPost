@@ -32,6 +32,12 @@
     </div>
   </div>
 </main>
+{% if current_user.is_authenticated: %}
+<div class="table-container">
+  <p style="position: relative; text-align: center;">Your Queries</p>
+  {{ userquery|safe }}
+</div>
+{% endif %}
 <main class="mb-4">
   <div class="container px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
