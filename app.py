@@ -16,20 +16,20 @@ from sqlalchemy import Integer, String, Text, and_,Boolean
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm, AdminContactForm, ResolvedQueryForm
-
+from email_validator import validate_email, EmailNotValidError
 from dotenv import load_dotenv
-
+import os
 load_dotenv()
 
 count = 5
 em_ail = None
 unique_id = None
-richard = "samuelard715@outlook.com"
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBu8A6O6dondsdfgdfgdffgSisfsdfBsdfsdx7C0sKR6b'
-my_email = "samuelrichard214@gmail.com"
-password = "bzpl steo npsi bnic"
+app.config['SECRET_KEY'] = os.getenv("FLASK_SECRET_KEY")
+
+my_email = os.getenv("EMAIL")
+password = os.getenv("EMAIL_PASSWORD")
 
 ckeditor = CKEditor(app)
 Bootstrap5(app)
@@ -42,11 +42,11 @@ def admin_only(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# CREATE DATABASE
+
 class Base(DeclarativeBase):
     pass
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://neondb_owner:npg_NF0wDWKkZLJ6@ep-super-shadow-a45g9gn4.us-east-1.aws.neon.tech/neondb?sslmode=require'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URI")
 app.config['PERMANENT_SESSION_LIFETIME'] = datetime.timedelta(minutes=15)
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_pre_ping": True,
@@ -56,7 +56,7 @@ db = SQLAlchemy(model_class=Base, engine_options=app.config['SQLALCHEMY_ENGINE_O
 db = SQLAlchemy(model_class=Base)
 db.init_app(app)
 
-# CONFIGURE TABLES
+
 class User(UserMixin, db.Model):
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -147,6 +147,13 @@ def load_user(user_id):
     em_ail = db.session.execute(db.select(User.email).where(User.id==user_id)).scalar()
     return db.get_or_404(User, user_id)
 
+def is_valid_email(email):
+        try:
+            validate_email(email)
+            return True
+        except EmailNotValidError:
+            return False
+        
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
@@ -156,35 +163,38 @@ def register():
         if user:
             flash("You've already signed up with that email, log in instead!")
             return redirect(url_for('login'))
-
-        hash_and_salted_password = generate_password_hash(
-            form.password.data,
-            method='pbkdf2:sha256',
-            salt_length=8
-        )
-        new_user = User(
-            email=form.email.data,
-            name=form.name.data,
-            password=hash_and_salted_password,
-        )
-        try:
-            with smtplib.SMTP("smtp.gmail.com", 587) as connection:
-                    connection.starttls()
-                    connection.login(user=my_email, password=password)
-                    connection.sendmail(
-                        from_addr=my_email,
-                        to_addrs=form.email.data,
-                        msg=f"Subject:Thank you for signing up at @BlogFocus your account is created.\n\nHi {form.name.data.capitalize()},\n\nI welcome you to BlogFocus family.\n\nRegards,\nRichard Samuel\nDeveloper @BlogFocus"
-                    )
-        except Exception as e:
-                app.logger.error(f"Error sending email: {e}")
-                flash(f"Please enter a valid Email !!! err: {e}", category="error")
-                return redirect(url_for('register'))
-        
-        db.session.add(new_user)
-        db.session.commit()
-        login_user(new_user)
-        return redirect(url_for('get_all_posts'))
+        elif is_valid_email(form.email.data):
+            hash_and_salted_password = generate_password_hash(
+                form.password.data,
+                method='pbkdf2:sha256',
+                salt_length=8
+            )
+            new_user = User(
+                email=form.email.data,
+                name=form.name.data,
+                password=hash_and_salted_password,
+            )
+            try:
+                with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                        connection.starttls()
+                        connection.login(user=my_email, password=password)
+                        connection.sendmail(
+                            from_addr=my_email,
+                            to_addrs=form.email.data,
+                            msg=f"Subject:Thank you for signing up at @BlogFocus your account is created.\n\nHi {form.name.data.capitalize()},\n\nI welcome you to BlogFocus family.\n\nRegards,\nRichard Samuel\nDeveloper @BlogFocus"
+                        )
+            except Exception as e:
+                    app.logger.error(f"Error sending email: {e}")
+                    flash(f"Please enter a valid Email !!! err: {e}", category="error")
+                    return redirect(url_for('register'))
+            
+            db.session.add(new_user)
+            db.session.commit()
+            login_user(new_user)
+            return redirect(url_for('get_all_posts'))
+        else:
+            flash("Please enter a valid email")
+            redirect(url_for('register'))
     return render_template("register.html", form=form, current_user=current_user)
 
 
