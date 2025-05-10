@@ -10667,8 +10667,15 @@ footer {
   padding-top: 3rem;
   padding-bottom: 3rem;
 }
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+  }
+ 
+}
 
 header.masthead {
+  transition: transform 0.5s ease-in;
   position: relative;
   margin-bottom: 3rem;
   padding-top: calc(8rem + 57px);
@@ -10676,6 +10683,7 @@ header.masthead {
   background: no-repeat center center;
   background-color: #6c757d;
   background-size: cover;
+  animation: fadeInOut 2s;
   background-attachment: scroll;
 }
 header.masthead:before {

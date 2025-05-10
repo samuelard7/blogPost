@@ -1,10 +1,17 @@
 {% include "header.html" %}
 
 <!-- Page Header-->
+ {% if current_user.is_authenticated: %}
+ <header
+  class="masthead"
+  style="background-image: url('../static/assets/img/image4.jpg')"
+>
+ {% else:%}
 <header
   class="masthead"
   style="background-image: url('../static/assets/img/richie.jpg')"
 >
+{% endif %}
   <div class="container position-relative px-4 px-lg-5">
     <div class="row gx-4 gx-lg-5 justify-content-center">
       <div class="col-md-10 col-lg-8 col-xl-7">
@@ -25,12 +32,24 @@
     </div>
   </div>
 </header>
-<!-- Main Content-->
+<main class="mb-4">
+  <div class="container">
+    <div class="row">
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      {% for message in messages %}
+      <p class="alert alert-success">{{ message }}</p>
+      {% endfor %}
+      {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+</main>
 <div class="container px-4 px-lg-5">
   <div class="row gx-4 gx-lg-5 justify-content-center">
     <div class="col-md-10 col-lg-8 col-xl-7">
       <!-- Post preview-->
-      {% for post in all_posts %}
+      {% for post in all_posts: %}
     
       <div class="post-preview">
         <a href="{{ url_for('show_post', post_id=post.id) }}">
@@ -41,8 +60,8 @@
           Posted by
           <a href="{{url_for('about')}}">{{post.author.name}}</a>
           on {{post.date}}
-          <!-- TODO: Only show delete button if user id is 1 (admin user) -->
-          <a href="https://wa.me/?text={{ url_for('show_post', post_id=post.id, _external=True) }} Hi! have you chacked this post?" target="_blank">Share this</a> <br>
+          
+          <a href="https://wa.me/?text={{ url_for('show_post', post_id=post.id, _external=True) }} Hi! have you checked this post?" target="_blank">Share this</a> <br>
           {% if current_user.id == 1: %}
           <a href="{{url_for('delete_post', post_id=post.id) }}">✘</a>
           {% endif %}
@@ -53,9 +72,8 @@
       <hr class="my-4" />
       {% endfor %}
 
-      <!-- New Post -->
-      <!-- TODO: Only show Create Post button if user id is 1 (admin user) -->
-      {% if current_user.id == 1: %}
+     
+      
       <div class="d-flex justify-content-end mb-4">
         <a
           class="btn btn-primary float-right"
@@ -63,8 +81,8 @@
           >Create New Post</a
         >
       </div>
-      {% endif %}
-      <!-- Pager-->
+     
+      
       <div class="d-flex justify-content-end mb-4">
         <a class="btn btn-secondary text-uppercase" href="#!">Older Posts →</a>
       </div>

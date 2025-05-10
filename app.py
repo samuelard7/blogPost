@@ -4,6 +4,8 @@ from flask_bootstrap import Bootstrap5
 import smtplib
 import pandas as pd
 import datetime
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from random import randint
 from flask_ckeditor import CKEditor
 from flask_gravatar import Gravatar
@@ -15,16 +17,20 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm, AdminLoginForm, AdminContactForm, ResolvedQueryForm
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 count = 5
 em_ail = None
 unique_id = None
-
-News_API_KEY = "0d57a9b0-8525-4a65-bca7-90413b3cb09d"
+richard = "samuelard715@outlook.com"
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '8BYkEfBu88nA6O6dondsdffgSihBXox7C0sKR6b'
+app.config['SECRET_KEY'] = '8BYkEfBu8A6O6dondsdfgdfgdffgSisfsdfBsdfsdx7C0sKR6b'
 my_email = "samuelrichard214@gmail.com"
-password = "ebsv xtyp eeuc pufg"
+password = "bzpl steo npsi bnic"
+
 ckeditor = CKEditor(app)
 Bootstrap5(app)
 
@@ -58,7 +64,20 @@ class User(UserMixin, db.Model):
     email: Mapped[str] = mapped_column(String(100), unique=True)
     password: Mapped[str] = mapped_column(String(100))
     posts = relationship("BlogPost", back_populates="author")
+    user_posts = relationship("UserPost", back_populates="author") 
     comments = relationship("Comment", back_populates="comment_author")
+
+class UserPost(db.Model):
+    __tablename__ = "user_posts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    title: Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
+    subtitle: Mapped[str] = mapped_column(String(250), nullable=False)
+    date: Mapped[str] = mapped_column(String(250), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    author_id: Mapped[int] = mapped_column(Integer, db.ForeignKey("users.id"))
+    author = relationship("User", back_populates="user_posts")
+    img_url: Mapped[str] = mapped_column(String(250), nullable=False)
+    
 
 class BlogPost(db.Model):
     __tablename__ = "blog_posts"
@@ -89,7 +108,7 @@ class Contact(db.Model):
     email: Mapped[str] = mapped_column(String(100), nullable=False)
     mobile: Mapped[str] = mapped_column(String(10))
     message: Mapped[str] = mapped_column(Text)
-    date: Mapped[str] = mapped_column(String(250), nullable=False)
+    date: Mapped[str] = mapped_column(String(250), nullable=True)
 
 class AdminContact(db.Model):
     __tablename__ = "adminqueries"
@@ -148,13 +167,20 @@ def register():
             name=form.name.data,
             password=hash_and_salted_password,
         )
-        new_user_contact_details = Contact(
-            email=form.email.data,
-            name=form.name.data,
-            mobile='Nan',
-            message='Nan',
-        )
-        db.session.add(new_user_contact_details)
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=form.email.data,
+                        msg=f"Subject:Thank you for signing up at @BlogFocus your account is created.\n\nHi {form.name.data.capitalize()},\n\nI welcome you to BlogFocus family.\n\nRegards,\nRichard Samuel\nDeveloper @BlogFocus"
+                    )
+        except Exception as e:
+                app.logger.error(f"Error sending email: {e}")
+                flash(f"Please enter a valid Email !!! err: {e}", category="error")
+                return redirect(url_for('register'))
+        
         db.session.add(new_user)
         db.session.commit()
         login_user(new_user)
@@ -165,18 +191,8 @@ def register():
 @app.route('/profile/<curr_user>', methods=["GET", "POST"])
 def user(curr_user):
     form = User()
-    # if form.validate_on_submit():
-    #     email = form.email.data
-    #     password = form.password.data
-    #     result = db.session.execute(db.select(User).where(User.email == email))
-    #     user = result.scalar()
-    #     if not user:
-    #         flash("Incorrect Credentials, please try again.")
-    #         return redirect(url_for('admin_login'))
-    #     else:
-    #         login_user(user)
-    #         return redirect(url_for('get_all_posts'))
-    return render_template("user.html", form=form, current_user=curr_user)
+    
+    return render_template("user.html", form=form, userd=curr_user)
 
 @app.route('/admin_login', methods=["GET", "POST"])
 def admin_login():
@@ -184,7 +200,7 @@ def admin_login():
     global count
     if form.validate_on_submit():
         email = form.email.data
-        result = db.session.execute(db.select(User).where(User.email == email))
+        result = db.session.execute(db.select(User).where(and_(User.email == email, User.id == 1)))
         user = result.scalar()
         if not user:
             flash("Incorrect Credentials, please try again.")
@@ -237,20 +253,53 @@ def get_all_posts():
 @app.route("/post/<int:post_id>", methods=["GET", "POST"])
 @login_required
 def show_post(post_id):
-    requested_post = db.get_or_404(BlogPost, post_id)
-    comment_form = CommentForm()
-    if comment_form.validate_on_submit():
-        if not current_user.is_authenticated:
-            flash("You need to login to comment.")
-            return redirect(url_for("login"))
+    from_admin = request.args.get('from_admin') 
+    if current_user.id != 1 and current_user.is_authenticated:
+        requested_post = db.get_or_404(BlogPost, post_id)
+        comment_form = CommentForm()
+        if comment_form.validate_on_submit():
+            if not current_user.is_authenticated:
+                flash("You need to login to comment.")
+                return redirect(url_for("login"))
 
-        new_comment = Comment(
-            text=comment_form.comment_text.data,
-            comment_author=current_user,
-            parent_post=requested_post
-        )
-        db.session.add(new_comment)
-        db.session.commit()
+            new_comment = Comment(
+                text=comment_form.comment_text.data,
+                comment_author=current_user,
+                parent_post=requested_post
+            )
+            db.session.add(new_comment)
+            db.session.commit()
+    elif current_user.id == 1 and from_admin == "true":    
+        requested_post = db.get_or_404(UserPost, post_id)
+        comment_form = CommentForm()
+        if comment_form.validate_on_submit():
+            if not current_user.is_authenticated:
+                flash("You need to login to comment.")
+                return redirect(url_for("login"))
+
+            new_comment = Comment(
+                text=comment_form.comment_text.data,
+                comment_author=current_user,
+                parent_post=requested_post
+            )
+            db.session.add(new_comment)
+            db.session.commit()
+    elif current_user.id == 1 and request.endpoint == "show_post":
+        requested_post = db.get_or_404(BlogPost, post_id)
+        comment_form = CommentForm()
+        if comment_form.validate_on_submit():
+            if not current_user.is_authenticated:
+                flash("You need to login to comment.")
+                return redirect(url_for("login"))
+
+            new_comment = Comment(
+                text=comment_form.comment_text.data,
+                comment_author=current_user,
+                parent_post=requested_post
+            )
+            db.session.add(new_comment)
+            db.session.commit()
+    
     return render_template("post.html", post=requested_post, current_user=current_user, form=comment_form)
 
 @app.route("/deletequery/<int:post_id>")
@@ -340,22 +389,104 @@ def admincontact():
 
     return render_template("Admincontact.html", current_user=current_user, form=form, resolvedform=resolved_form, query=table_html)
 
-@app.route("/new-post", methods=["GET", "POST"])
+@app.route("/admin-approval", methods=["GET", "POST"])
 @admin_only
+def adminapproval():
+    result = db.session.execute(db.select(UserPost))
+    posts = result.scalars().all()
+    return render_template("admin_approval.html", all_posts=posts, current_user = current_user)
+
+@app.route("/new-post", methods=["GET", "POST"])
+@login_required
 def add_new_post():
     form = CreatePostForm()
-    if form.validate_on_submit():
-        new_post = BlogPost(
-            title=form.title.data,
-            subtitle=form.subtitle.data,
-            body=form.body.data,
-            img_url=form.img_url.data,
-            author=current_user,
-            date=date.today().strftime("%B %d, %Y")
-        )
-        db.session.add(new_post)
-        db.session.commit()
-        return redirect(url_for("get_all_posts"))
+    if unique_id != 1:
+        if form.validate_on_submit():
+            new_post = UserPost(
+                title=form.title.data,
+                subtitle=form.subtitle.data,
+                body=form.body.data,
+                img_url=form.img_url.data,
+                author=current_user,
+                date=date.today().strftime("%B %d, %Y")
+            )
+            db.session.add(new_post)
+            db.session.commit()
+            try:
+                user_msg = MIMEMultipart()
+                user_msg['From'] = my_email
+                user_msg['To'] = em_ail
+                user_msg['Subject'] = f"We received your request for blog post titled: {form.title.data}"
+
+                user_body = f"""Dear {current_user.name},\n\n
+            Thank you for posting on BlogFocus!\n\n
+            We will post it after validation.\n\n
+            Thank you,\n
+            Richard Samuel\n
+            Developer @BlogFocus"""
+                user_msg.attach(MIMEText(user_body, 'plain', 'utf-8'))
+
+                # Send the email to the user
+                with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=em_ail,
+                        msg=user_msg.as_string()
+                    )
+                admin_msg = MIMEMultipart()
+                admin_msg['From'] = my_email
+                admin_msg['To'] = my_email
+                admin_msg['Subject'] = f"{current_user.name} requested for blog post titled: {form.title.data}"
+
+                admin_body = f"""Please visit blogfocus@vercel.app Admin Tab to validate the post!"""
+                admin_msg.attach(MIMEText(admin_body, 'plain', 'utf-8'))
+
+                # Send the email to the admin
+                with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=my_email,
+                        msg=admin_msg.as_string()
+                    )
+            except Exception as e:
+                app.logger.error(f"Error sending email: {e}")
+                flash(f"An error occurred while adding the post. Please try again later.")
+                return redirect(url_for("add_new_post"))
+            # with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+            #         connection.starttls()
+            #         connection.login(user=my_email, password=password)
+            #         connection.sendmail(
+            #             from_addr=my_email,
+            #             to_addrs=em_ail,
+            #             msg=f"Subject:We received your request for blog post titled: {form.title.data} \n\nDear {current_user.name}, \nThank you for posting on BlogFocus! \n\n\n We will post it after validation. \n Thank you \n Richard Samuel \n Developer @BlogFocus "
+            #         )
+            # with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+            #         connection.starttls()
+            #         connection.login(user=my_email, password=password)
+            #         connection.sendmail(
+            #             from_addr=my_email,
+            #             to_addrs=my_email,
+            #             msg=f"Subject:{current_user.name} requested for blog post titled: {form.title.data} \n\nPlease visit blogfocus@vercel.app Admin Tab to validate the post!"
+            #         )
+            flash("Your post will go live once approved by the Admin.")
+            return redirect(url_for("get_all_posts"))
+    else:
+        if form.validate_on_submit():
+            new_post = BlogPost(
+                title=form.title.data,
+                subtitle=form.subtitle.data,
+                body=form.body.data,
+                img_url=form.img_url.data,
+                author=current_user,
+                date=date.today().strftime("%B %d, %Y")
+            )
+            db.session.add(new_post)
+            db.session.commit()
+            return redirect(url_for("get_all_posts"))
     return render_template("make-post.html", form=form, current_user=current_user)
 
 @app.route("/edit-post/<int:post_id>", methods=["GET", "POST"])
@@ -385,6 +516,50 @@ def delete_post(post_id):
     db.session.delete(post_to_delete)
     db.session.commit()
     return redirect(url_for('get_all_posts'))
+
+@app.route("/admin-decision/<int:post_id>")
+@login_required
+def admin_decision(post_id):
+    decision = request.args.get('decision')
+    print(decision)
+    post_to_delete = db.get_or_404(UserPost, post_id)
+    search__user_email = db.session.execute(db.select(User.email,User.name).where(User.id == post_to_delete.author_id)).first()
+    if decision == 'rejected':
+        with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=search__user_email.email,
+                        msg = f"Subject:Your Post Has Been Rejected\n\nDear {search__user_email.name},\n\nThank you for posting on BlogFocus!\n\nUnfortunately, your content has some issues.\n\nWe urge you to submit it again and contact us through the Contact tab to know the reason for the rejection.\n\nRegards,\nRichard Samuel\nDeveloper @BlogFocus"
+                    )
+        db.session.delete(post_to_delete)
+        db.session.commit()
+        flash(f"Post '{post_to_delete.id}' has been rejected.", category="error")
+        return redirect(url_for('adminapproval'))
+    elif decision == 'approved':
+        new_post = BlogPost(
+            title=post_to_delete.title,
+            subtitle=post_to_delete.subtitle,
+            body=post_to_delete.body,
+            img_url=post_to_delete.img_url,
+            author=post_to_delete.author,
+            date=post_to_delete.date
+        )    
+        with smtplib.SMTP("smtp.gmail.com", 587) as connection:
+                    connection.starttls()
+                    connection.login(user=my_email, password=password)
+                    connection.sendmail(
+                        from_addr=my_email,
+                        to_addrs=search__user_email.email,
+                        msg=f"Subject:You post has been approved !!!\n\nDear {search__user_email.name}, \nThank you for posting on BlogFocus! \n\n\n Your post is live. \n\n Happy Blogging, \n Richard Samuel \n Developer @BlogFocus "
+                    )
+        db.session.add(new_post)    
+        db.session.delete(post_to_delete)
+        db.session.commit()
+        flash(f"Post '{post_to_delete.id}' has been approved.")
+        return redirect(url_for('adminapproval'))
+    return redirect(url_for('adminapproval'))
 
 @app.route("/about")
 def about():
@@ -432,13 +607,13 @@ def contact():
                         connection.starttls()
                         connection.login(user=my_email, password=password)
                         connection.sendmail(from_addr=email, to_addrs=my_email,
-                                    msg=f"Subject:{name} sends a message\n\n {message} \n\n\n Mob:{phone}")
+                                    msg=f"Subject:{name} sends a message\n\n User Query : {message} \n\n\n Mob:{phone}\n\n\n Please visit blogfocus.vercel.app Admin Tab to address it")
                         connection.sendmail(
                         from_addr=my_email,
                         to_addrs=email,
                         msg=f"Subject:Your query has been initiated with reference id {Query_no} \n\nDear {name}, \nThank you for contacting BlogFocus! \nYou will Hear from us within 24 working hours. \n\n\n Thank you. \n\n Richard Samuel \n Developer @BlogFocus "
                         )
-                    flash('Successfully Sended.',category="success")
+                    flash('Successfully Sended please check your inbox/spam folder.',category="success")
                     return redirect(url_for('contact'))
                 except Exception as e:
                     app.logger.error(f"Error sending email: {e}")

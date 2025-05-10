@@ -1,41 +1,53 @@
-{% from "bootstrap5/form.html" import render_form %} {% block content %} 
-{% include "profileheader.html" %}
+{% from "bootstrap5/form.html" import render_form %} 
+{% include "header.html" %}
 
-<hi>Hi! {{current_user}}</hi>
+<header
+  class="masthead"
+  style="background-image: url('../static/assets/img/image3.jpg')"
+>
+  <div class="container position-relative px-4 px-lg-5">
+    <div class="row gx-4 gx-lg-5 justify-content-center">
+      <div class="col-md-10 col-lg-8 col-xl-7">
+        <div class="page-heading">
+          <h3>Hi {{ userd }}. This page is under developing please come back later.</h3>
+          
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
 
-<style type="text/css">
+<!-- <style type="text/css">
     #ProfilePage
     {
-        /* Move it off the top of the page, then centre it horizontally */
+    
         margin: 50px auto;
         width: 635px;
     
-    /* For visibility. Delete me */
+   
     border: 1px solid red;
     }
     
     #LeftCol
     {
-        /* Move it to the left */
+      
         float: left;
     
         width: 200px;
         text-align: center;
-    
-        /* Move it away from the content */
         margin-right: 20px;
     
-    /* For visibility. Delete me */
+    
     border: 1px solid brown;
     }
     
     #Photo
     {
-        /* Width and height of photo container */
+ 
         width: 200px;
         height: 200px;
     
-    /* For visibility. Delete me */
+  
     border: 1px solid green;
     }
     
@@ -44,7 +56,7 @@
         text-align: center;
         width: 200px;
     
-    /* For visibility. Delete me */
+
     border: 1px solid brown;
     }
     
@@ -52,31 +64,27 @@
     {
         width: 400px;
         text-align: center;
-    
-        /* Move it to the right */
         float: right;
     
-    /* For visibility. Delete me */
     border: 1px solid blue;
     }
     
     #Info strong
     {
-        /* Give it a width */
+       
         display: inline-block;
         width: 100px;
     
-    /* For visibility. Delete me */
+   
     border: 1px solid orange;
     }
     
     #Info span
     {
-        /* Give it a width */
         display: inline-block;
         width: 250px;
     
-    /* For visibility. Delete me */
+    
     border: 1px solid purple;
     }
     </style>
@@ -85,35 +93,33 @@
         <div id="LeftCol">
             <div id="Photo"></div>
             <div id="ProfileOptions">
-            a
+            Hi
             </div>
         </div>
     
         <div id="Info">
             <p>
                 <strong>Name:</strong>
+                <span>{{ form.name}}</span>
+            </p>
+            <p>
+                <strong>Mobile:</strong>
+                <span>{{ userd.mobile }}</span>
+            </p>
+            <p>
+                <strong>Email:</strong>
+                <span>{{ userd.email}}</span>
+            </p>
+            <p>
+                <strong>Gender:</strong>
                 <span>Sirjon</span>
             </p>
             <p>
-                <strong>Name:</strong>
-                <span>Sirjon</span>
-            </p>
-            <p>
-                <strong>Name:</strong>
-                <span>Sirjon</span>
-            </p>
-            <p>
-                <strong>Name:</strong>
-                <span>Sirjon</span>
-            </p>
-            <p>
-                <strong>Name:</strong>
+                <strong>Profession:</strong>
                 <span>Sirjon</span>
             </p>
         </div>
-    
-        <!-- Needed because other elements inside ProfilePage have floats -->
+
         <div style="clear:both"></div>
-    </div>
+    </div> -->
 {% include "footer.html" %}
-{% endblock %}

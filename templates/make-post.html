@@ -1,5 +1,6 @@
-{% from "bootstrap5/form.html" import render_form %} {% block content %} {%
-include "header.html" %}
+{% from "bootstrap5/form.html" import render_form %} 
+{% block content %} 
+{% include "header.html" %}
 
 <!-- Page Header -->
 <header
@@ -30,6 +31,8 @@ include "header.html" %}
       <div class="col-lg-8 col-md-10 mx-auto">
         {{ ckeditor.load() }} {{ ckeditor.config(name='body') }} {{
         render_form(form, novalidate=True, button_map={"submit": "primary"}) }}
+        <br>
+        <button type="button" class="btn btn-primary" onclick="history.back()">Cancel</button>
       </div>
     </div>
   </div>
