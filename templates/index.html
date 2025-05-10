@@ -58,7 +58,11 @@
         </a>
         <p class="post-meta">
           Posted by
+          {% if post.author.name == 'Richard' %}
           <a href="{{url_for('about')}}">{{post.author.name}}</a>
+          {% else %}
+          <a href="#">{{post.author.name}}</a>
+          {% endif %}
           on {{post.date}}
           
           <a href="https://wa.me/?text={{ url_for('show_post', post_id=post.id, _external=True) }} Hi! have you checked this post?" target="_blank">Share this</a> <br>

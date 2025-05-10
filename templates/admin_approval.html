@@ -46,7 +46,11 @@
         </a>
         <p class="post-meta">
           Posted by
+          {% if post.author.name == 'Richard Samuel' %}
           <a href="{{url_for('about')}}">{{post.author.name}}</a>
+          {% else %}
+          <a href="#">{{post.author.name}}</a>
+          {% endif %}
           on {{post.date}}
           <br>
           {% if current_user.id == 1: %}

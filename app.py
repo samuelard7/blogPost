@@ -316,12 +316,12 @@ def admincontact():
     form = AdminContactForm()
     resolved_form = ResolvedQueryForm()
 
-    # Populate the SelectField with database data
+    
     contact_queries = db.session.execute(db.select(Contact.Ref_no)).scalars().all()
     resolved_form.resolved.choices = [("", "Select Query number")] + [(str(ref_no), str(ref_no)) for ref_no in contact_queries]
 
     if request.method == "POST":
-        # Check which form was submitted
+        
         if form.form_name.data == "admin_contact_form" and form.validate_on_submit():
             email = form.email.data
             message = form.reply.data
@@ -380,7 +380,7 @@ def admincontact():
                 flash('Please select the Ref_no')
                 return redirect(url_for('admincontact'))
 
-    # Render the template
+ 
     result = db.session.execute(db.select(Contact))
     query = [[c.Ref_no, c.name, c.email, c.mobile, c.message, c.date] for c in result.scalars()]
     columns = ["Ref_No", "Name", "Email", "Mobile", "Message", "Date"]
@@ -426,7 +426,6 @@ def add_new_post():
             Developer @BlogFocus"""
                 user_msg.attach(MIMEText(user_body, 'plain', 'utf-8'))
 
-                # Send the email to the user
                 with smtplib.SMTP("smtp.gmail.com", 587) as connection:
                     connection.starttls()
                     connection.login(user=my_email, password=password)
@@ -443,7 +442,7 @@ def add_new_post():
                 admin_body = f"""Please visit blogfocus@vercel.app Admin Tab to validate the post!"""
                 admin_msg.attach(MIMEText(admin_body, 'plain', 'utf-8'))
 
-                # Send the email to the admin
+                
                 with smtplib.SMTP("smtp.gmail.com", 587) as connection:
                     connection.starttls()
                     connection.login(user=my_email, password=password)
@@ -456,22 +455,7 @@ def add_new_post():
                 app.logger.error(f"Error sending email: {e}")
                 flash(f"An error occurred while adding the post. Please try again later.")
                 return redirect(url_for("add_new_post"))
-            # with smtplib.SMTP("smtp.gmail.com", 587) as connection:
-            #         connection.starttls()
-            #         connection.login(user=my_email, password=password)
-            #         connection.sendmail(
-            #             from_addr=my_email,
-            #             to_addrs=em_ail,
-            #             msg=f"Subject:We received your request for blog post titled: {form.title.data} \n\nDear {current_user.name}, \nThank you for posting on BlogFocus! \n\n\n We will post it after validation. \n Thank you \n Richard Samuel \n Developer @BlogFocus "
-            #         )
-            # with smtplib.SMTP("smtp.gmail.com", 587) as connection:
-            #         connection.starttls()
-            #         connection.login(user=my_email, password=password)
-            #         connection.sendmail(
-            #             from_addr=my_email,
-            #             to_addrs=my_email,
-            #             msg=f"Subject:{current_user.name} requested for blog post titled: {form.title.data} \n\nPlease visit blogfocus@vercel.app Admin Tab to validate the post!"
-            #         )
+            
             flash("Your post will go live once approved by the Admin.")
             return redirect(url_for("get_all_posts"))
     else:
