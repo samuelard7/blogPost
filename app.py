@@ -148,22 +148,22 @@ def load_user(user_id):
     return db.get_or_404(User, user_id)
 
 def is_valid_email(email):
-        try:
-            validate_email(email)
-            return True
-        except EmailNotValidError:
-            return False
+    try:
+        validate_email(email)
+        return True
+    except EmailNotValidError:
+        return False
         
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegisterForm()
     if form.validate_on_submit():
+       
         result = db.session.execute(db.select(User).where(User.email == form.email.data))
         user = result.scalar()
         if user:
             flash("You've already signed up with that email, log in instead!")
-            return redirect(url_for('login'))
-        elif is_valid_email(form.email.data):
+        elif is_valid_email(request.form.get('email')):
             hash_and_salted_password = generate_password_hash(
                 form.password.data,
                 method='pbkdf2:sha256',
